@@ -34,9 +34,6 @@ import shortest_path
 import subprocess
 import sys
 
-data_dir = '/Users/nickywright/repos/usyd/EarthBytePlateMotionModel-ARCHIVE/Global_Model_WD_Internal_Release_2022_v2'
-coastline_filename = '%s/StaticGeometries/Coastlines/Global_coastlines_low_res.shp' % data_dir
-
 USE_SHORTEST_DISTANCE = True
 
 
@@ -415,6 +412,7 @@ class ProximityData(object):
 def proximity(
         input_points, # List of (lon, lat) tuples.
         rotation_filenames,
+        coastline_filename,
         proximity_filenames,
         proximity_features_are_topological,
         proximity_feature_types,
@@ -482,7 +480,6 @@ def proximity(
                 ((lon, lat), age_grid_paleo_time + age, pygplates.PointOnSphere(lat, lon)))
     
     rotation_model = pygplates.RotationModel(rotation_filenames)
-    
     # Read/parse the proximity features once so we're not doing at each time iteration.
     proximity_features = pygplates.FeaturesFunctionArgument(proximity_filenames).get_features()
     
@@ -511,11 +508,14 @@ def proximity(
     
     # All proximity data to return to caller.
     proximity_data = ProximityData()
-    
+
+
     if USE_SHORTEST_DISTANCE:
         #print('Creating shortest path grid...')
         shortest_path_grid = shortest_path.Grid(6)
-        obstacle_features = pygplates.FeatureCollection(coastline_filename)
+        # obstacle_features = pygplates.FeatureCollection(coastline_file)
+        obstacle_features = pygplates.FeaturesFunctionArgument(coastline_filename).get_features()
+        # print(obstacle_features)
     
     # Iterate from paleo time until we exceed the maximum begin time of all ocean basin point locations.
     min_time_index = int(math.ceil(age_grid_paleo_time / time_increment))
@@ -778,6 +778,7 @@ def proximity_parallel_pool_function(args):
 def proximity_parallel(
         input_points, # List of (lon, lat) tuples.
         rotation_filenames,
+        coastline_filename,
         proximity_filenames,
         proximity_features_are_topological,
         proximity_feature_types,
@@ -813,6 +814,7 @@ def proximity_parallel(
         return proximity(
             input_points, # List of (lon, lat) tuples.
             rotation_filenames,
+            coastline_filename,
             proximity_filenames,
             proximity_features_are_topological,
             proximity_feature_types,
@@ -856,6 +858,7 @@ def proximity_parallel(
                     (
                         pool_input_points_sub_list,
                         rotation_filenames,
+                        coastline_filename,
                         proximity_filenames,
                         proximity_features_are_topological,
                         proximity_feature_types,
@@ -1022,6 +1025,8 @@ if __name__ == '__main__':
         
         parser.add_argument('-r', '--rotation_filenames', type=str, nargs='+', required=True,
                 metavar='rotation_filename', help='One or more rotation files.')
+        parser.add_argument('-co', '--coastline_filename', type=str, nargs='+',
+                metavar='coastline_filename', help='Coastline file.')
         parser.add_argument('-a', '--anchor', type=int, default=0,
                 dest='anchor_plate_id',
                 help='Anchor plate id used for reconstructing. Defaults to zero.')
@@ -1170,6 +1175,7 @@ if __name__ == '__main__':
         proximity_data = proximity_parallel(
                 input_points,
                 args.rotation_filenames,
+                args.coastline_filename,
                 args.proximity_filenames,
                 not args.non_topological_proximity_features, # proximity_features_are_topological
                 args.proximity_feature_types,
