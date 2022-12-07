@@ -34,6 +34,15 @@ Outputs:
 
 2020-02-25: Added comments, created folders within the script itself
 2022-08-26: Update parameters for GlobSed and latest (trunk2022) agegrids. Modify dirs to be consistent with pt1
+2022-12-05: Modified this script to be compatible with a yaml file.
+
+++++++++++++++++++++++++
+To run this script, in terminal:
+
+    python 02_generate_predicted_sedimentation_grids.py ../../config.yaml
+
+++++++++++++++++++++++++
+
 """
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ------------------------------------------

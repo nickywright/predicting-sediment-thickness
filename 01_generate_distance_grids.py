@@ -26,6 +26,15 @@ Outputs:
 
 2020-02-14: Added comments, removed hardcoded names (for rotation file, etc) from definitions
 2022-08-29: Added more comments (NW)
+2022-12-05: Modified this script to be compatible with a yaml file.
+
+++++++++++++++++++++++++
+To run this script, in terminal:
+
+    python 01_generate_distance_grids.py ../../config.yaml
+
+++++++++++++++++++++++++
+
 """
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
