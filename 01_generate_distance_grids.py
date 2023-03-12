@@ -198,14 +198,15 @@ if sediment_thickness_within_main_output_dir.lower() in ['true', '1', 't', 'y', 
     if include_date_in_output_dir.lower() in ['true', '1', 't', 'y', 'yes']:
         if date == 'today':
             date = today
-            output_dir = '%s/%s/%s/distances_%sd' % (paleobathymetry_main_output_dir, date, sediment_thickness_output_dir, grid_spacing)
+            output_dir = '%s/%s/traditional_paleobathymetry/%s/distances_%sd' % (paleobathymetry_main_output_dir, date, sediment_thickness_output_dir, grid_spacing)
         else:
-            output_dir = '%s/%s/%s/distances_%sd' % (paleobathymetry_main_output_dir, date, sediment_thickness_output_dir, grid_spacing)
+            output_dir = '%s/%s/traditional_paleobathymetry/%s/distances_%sd' % (paleobathymetry_main_output_dir, date, sediment_thickness_output_dir, grid_spacing)
     else:
-        output_dir = '%s/%s/distances_%sd' % (paleobathymetry_main_output_dir, sediment_thickness_output_dir, grid_spacing)
+        output_dir = '%s/traditional_paleobathymetry/%s/distances_%sd' % (paleobathymetry_main_output_dir, sediment_thickness_output_dir, grid_spacing)
 else:
     output_dir = '%s/distances_%sd' % (sediment_thickness_output_dir, grid_spacing)
 
+print(output_dir)
 
 proximity_threshold_kms = 3000
 

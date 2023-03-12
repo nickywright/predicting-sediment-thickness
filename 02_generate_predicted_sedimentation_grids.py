@@ -129,11 +129,11 @@ if sediment_thickness_within_main_output_dir.lower() in ['true', '1', 't', 'y', 
     if include_date_in_output_dir.lower() in ['true', '1', 't', 'y', 'yes']:
         if date == 'today':
             date = today
-            output_dir = '%s/%s/%s' % (paleobathymetry_main_output_dir, date, sediment_thickness_output_dir)
+            output_dir = '%s/%s/traditional_paleobathymetry/%s' % (paleobathymetry_main_output_dir, date, sediment_thickness_output_dir)
         else:
-            output_dir = '%s/%s/%s' % (paleobathymetry_main_output_dir, date, sediment_thickness_output_dir)
+            output_dir = '%s/%s/traditional_paleobathymetry/%s' % (paleobathymetry_main_output_dir, date, sediment_thickness_output_dir)
     else:
-        output_dir = '%s/%s' % (paleobathymetry_main_output_dir, sediment_thickness_output_dir)
+        output_dir = '%s/traditional_paleobathymetry/%s' % (paleobathymetry_main_output_dir, sediment_thickness_output_dir)
 else:
     output_dir = '%s' % (sediment_thickness_output_dir)
 
