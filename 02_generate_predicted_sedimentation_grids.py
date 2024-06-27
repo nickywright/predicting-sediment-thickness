@@ -8,6 +8,13 @@ import multiprocessing
 import os, shutil
 import sys
 
+from datetime import datetime
+import yaml
+try:
+    from yaml import Cloader as Loader
+except ImportError:
+    from yaml import Loader
+
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 """ ---------- Part 2 of the prediciting-sediment-thickness workflow ----------
 This script creates grids (netcdfs) of sediment thickness and sediment rate through time
@@ -36,6 +43,74 @@ Outputs:
 2024-02:    Improved memory usage.
 """
 
+
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# ------------------------------------------
+# --- Set paths and various parameters
+# ------------------------------------------
+today = datetime.today().strftime('%Y%m%d')
+
+try:
+    config_file = sys.argv[1]
+    print("*** Parameters set from %s ***" % config_file)
+    with open(config_file) as f:
+        PARAMS = yaml.load(f, Loader=Loader)
+
+    # ------------------------------------------
+    # --- Set directories and input files ------
+    model_name = PARAMS["InputFiles"]["model_name"]
+    paleobathymetry_main_output_dir = PARAMS["OutputFiles"]["paleobathymetry_main_output_dir"]
+    include_date_in_output_dir = PARAMS["OutputFiles"]["include_date_in_output_dir"]
+    date = PARAMS["OutputFiles"]["date"]
+
+    sediment_thickness_output_dir = PARAMS["OutputFiles"]["sediment_thickness_output_dir"]
+    sediment_thickness_within_main_output_dir = PARAMS["OutputFiles"]["sediment_thickness_within_main_output_dir"]
+
+    # --- agegrids
+    agegrid_dir = PARAMS["InputFiles"]["agegrid_dir"]
+    agegrid_filename = PARAMS["InputFiles"]["agegrid_filename"]
+    agegrid_filename_ext = PARAMS["InputFiles"]["agegrid_filename_ext"]
+
+    # --- input file
+    proximity_features_files = [PARAMS["InputFiles"]["sediment_thickness_features"]]
+
+    # --- Plate model files
+    plate_model_dir = PARAMS["InputFiles"]["model_dir"]
+    rotation_filenames = [os.path.join(plate_model_dir, i) for i in PARAMS['InputFiles']['rotation_files']]
+    topology_filenames = [os.path.join(plate_model_dir, i) for i in PARAMS['InputFiles']['topology_files']]
+    coastline_filename = '%s/%s' % (plate_model_dir, PARAMS['InputFiles']['coastline_file'])
+
+    anchor_plate_id = int(PARAMS["InputFiles"]["anchor_plate_id"])
+
+    # --- grid spacing
+    grid_spacing = PARAMS["GridParameters"]["grid_spacing"]
+    lon_min = PARAMS["GridParameters"]["lon_min"]
+    lon_max = PARAMS["GridParameters"]["lon_max"]
+    lat_min = PARAMS["GridParameters"]["lat_min"]
+    lat_max = PARAMS["GridParameters"]["lat_max"]
+
+    # --- time parameters
+    min_time = int(PARAMS["TimeParameters"]["time_min"])           # Not truly a min_time, - parts 1 and 3 require a 0 Ma shapefile
+    # oldest time to reconstruct to (will default to 0 Ma for min time)
+    max_time = int(PARAMS["TimeParameters"]["time_max"])
+    time_step = int(PARAMS["TimeParameters"]["time_step"])      # Myrs to increment age by in loop
+    
+    # running parameters
+    sed_distance_internal_grid_spacing = PARAMS["SedimentThicknessWorfkowParameters"]["sed_distance_internal_grid_spacing"]
+
+    num_cpus = PARAMS["Parameters"]["number_of_cpus"] # number of cpus to use. Reduce if required!
+    max_memory_usage_in_gb = PARAMS["SedimentThicknessWorfkowParameters"]["max_memory_usage_in_gb_sedthickness"]
+    use_continent_contouring_workflow = PARAMS["SedimentThicknessWorfkowParameters"]["use_continent_contouring_workflow"]
+    max_topological_reconstruction_time = PARAMS["SedimentThicknessWorfkowParameters"]["max_topological_reconstruction_time"]
+    clamp_mean_proximity_kms = PARAMS["SedimentThicknessWorfkowParameters"]["clamp_mean_proximity_kms"]
+
+    generate_sediment_thickness_grids = PARAMS["SedimentThicknessWorfkowParameters"]["generate_sediment_thickness_grids"]
+    generate_sedimentation_rate_grids = PARAMS["SedimentThicknessWorfkowParameters"]["generate_sedimentation_rate_grids"]
+
+except IndexError:
+    print('*** No yaml file given. Make sure you specify it ***')
+
 # ------------------------------------------
 # BEGIN USER INPUT
 # ------------------------------------------
@@ -47,23 +122,60 @@ Outputs:
 # If a positive integer then use that specific number of CPUs (cores).
 #
 #use_all_cpus = False
-use_all_cpus = 4
+# use_all_cpus = 4
 #use_all_cpus = True
 
-# Base output directory.
-output_base_dir = '.'
+use_all_cpus = num_cpus
+
+
 
 # Generate sedimentation grids for times in the range [min_time, max_time] at 'time_step' intervals.
-min_time = 0
-max_time = 250
-time_step = 1
+# min_time = 0
+# max_time = 250
+# time_step = 1
+
+# Base output directory.
+if sediment_thickness_within_main_output_dir.lower() in ['true', '1', 't', 'y', 'yes']:
+    if include_date_in_output_dir.lower() in ['true', '1', 't', 'y', 'yes']:
+        if date == 'today':
+            date = today
+            output_base_dir = '%s/%s/traditional_paleobathymetry/%s/sediment_thickness_D17' % (paleobathymetry_main_output_dir, date, sediment_thickness_output_dir)
+            base_dir = '%s/%s' % (paleobathymetry_main_output_dir, date)
+        else:
+            output_base_dir = '%s/%s/traditional_paleobathymetry/%s/sediment_thickness_D17' % (paleobathymetry_main_output_dir, date, sediment_thickness_output_dir)
+            base_dir = '%s/%s' % (paleobathymetry_main_output_dir, date)
+    else:
+        output_base_dir = '%s/traditional_paleobathymetry/%s/sediment_thickness_D17' % (paleobathymetry_main_output_dir, sediment_thickness_output_dir)
+        base_dir = paleobathymetry_main_output_dir
+else:
+    if include_date_in_output_dir.lower() in ['true', '1', 't', 'y', 'yes']:
+        if date == 'today':
+            date = today
+            base_dir = '%s/%s/sediment_thickness_D17' % (paleobathymetry_main_output_dir, date)
+            output_base_dir = '%s/%s/sediment_thickness_D17' % (sediment_thickness_output_dir, date)
+        else:
+            base_dir = '%s/%s/sediment_thickness_D17' % (paleobathymetry_main_output_dir, date)
+            output_base_dir = '%s/%s/sediment_thickness_D17' % (sediment_thickness_output_dir, date)
+    else:
+        output_base_dir = '%s/sediment_thickness_D17' % (sediment_thickness_output_dir)
+        base_dir = paleobathymetry_main_output_dir
+
+print("... Output directory: " , output_base_dir)
+
 
 # Whether to generate predicted sediment thickness grids and/or sedimentation rate grids.
-generate_sediment_thickness_grids = True
-generate_sedimentation_rate_grids = True
+if generate_sediment_thickness_grids.lower() in ['true', '1', 't', 'y', 'yes']:
+    generate_sediment_thickness_grids = True
+else:
+    generate_sediment_thickness_grids = False
+
+if generate_sedimentation_rate_grids.lower() in ['true', '1', 't', 'y', 'yes']:
+    generate_sedimentation_rate_grids = True
+else:
+    generate_sedimentation_rate_grids = False
 
 distance_grid_spacing = 0.1   # grid spacing of input distance grids
-grid_spacing = 0.1            # grid spacing of output sedimentation grids
+grid_spacing = grid_spacing   # grid spacing of output sedimentation grids
 
 # Distance grid files (from part 1)
 #     The "{}" parts are substituted here now (in this str.format() call) whereas the escaped "{{...}}" part is subsituted later (with each 'time').
@@ -78,12 +190,15 @@ sediment_output_sub_dir = 'sedimentation_output'
 # Use a string section like "{:.1f}" to for the age grid paleo time. The ".1f" part means use the paleo time to one decimal place
 # (see Python\'s str.format() function) such that a time of 100 would be substituted as "100.0".
 # This string section will get replaced with each age grid time in turn (to generate the actual age grid filenames).
-age_grid_filenames_format = '/Users/nickywright/Data/Age/Muller2019-Young2019-Cao2020_Agegrids/Muller2019-Young2019-Cao2020_netCDF/Muller2019-Young2019-Cao2020_AgeGrid-{:.0f}.nc'
+# age_grid_filenames_format = '/Users/nickywright/Data/Age/Muller2019-Young2019-Cao2020_Agegrids/Muller2019-Young2019-Cao2020_netCDF/Muller2019-Young2019-Cao2020_AgeGrid-{:.0f}.nc'
+
+age_grid_filenames_format = '%s/%s{:.0f}%s' % (agegrid_dir, agegrid_filename, agegrid_filename_ext)
+
 
 # ------------------------------------------
 # END USER INPUT
 # ------------------------------------------
-
+  
 
 # check if the base output directory exists. If it doesn't, create it.
 if not os.path.exists(output_base_dir + '/' + sediment_output_sub_dir):
