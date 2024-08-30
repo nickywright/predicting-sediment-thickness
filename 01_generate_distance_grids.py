@@ -221,7 +221,8 @@ clamp_mean_proximity_kms = clamp_mean_proximity_kms
 
 if not os.path.exists(output_dir):
     print('{} does not exist, creating now... '.format(output_dir))
-    os.mkdir(output_dir)
+    #os.mkdir(output_dir)
+    os.makedirs(output_dir, exist_ok=True)  #e.g. if have multiple need to make 20240830/sediment_thickness_D17/distances_0.1d ?
 
 # ----- 
 def generate_distance_grids(times):
