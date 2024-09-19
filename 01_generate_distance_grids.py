@@ -62,7 +62,7 @@ try:
     agegrid_dir = PARAMS["InputFiles"]["agegrid_dir"]
     agegrid_filename = PARAMS["InputFiles"]["agegrid_filename"]
     agegrid_filename_ext = PARAMS["InputFiles"]["agegrid_filename_ext"]
-
+    agegrid_age_zero_padding = PARAMS["InputFiles"]["agegrid_age_zero_padding"]
     # --- input file
     proximity_features_files = [PARAMS["InputFiles"]["sediment_thickness_features"]]
 
@@ -202,7 +202,7 @@ print('... Using continent_obstacle_files: %s' % continent_obstacle_files)
 # (see Python\'s str.format() function) such that a time of 100 would be substituted as "100.0".
 # This string section will get replaced with each age grid time in turn (to generate the actual age grid filenames).
 # age_grid_filenames_format = '/Users/nickywright/Data/Age/Muller2019-Young2019-Cao2020_Agegrids/Muller2019-Young2019-Cao2020_netCDF/Muller2019-Young2019-Cao2020_AgeGrid-{:.0f}.nc'
-age_grid_filenames_format = '%s/%s{:.0f}%s' % (agegrid_dir, agegrid_filename, agegrid_filename_ext)
+age_grid_filenames_format = '%s/%s{:0>%s.0f}%s' % (agegrid_dir, agegrid_filename, agegrid_age_zero_padding, agegrid_filename_ext)
 
 # For each distance grid do not reconstruct ocean points earlier than 'max_topological_reconstruction_time'
 # (each ocean point is reconstructed back to its age grid value or this value, whichever is smaller).
@@ -221,7 +221,7 @@ clamp_mean_proximity_kms = clamp_mean_proximity_kms
 
 if not os.path.exists(output_dir):
     print('{} does not exist, creating now... '.format(output_dir))
-    os.mkdir(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
 # ----- 
 def generate_distance_grids(times):

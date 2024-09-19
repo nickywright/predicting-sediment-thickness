@@ -71,6 +71,7 @@ try:
     agegrid_dir = PARAMS["InputFiles"]["agegrid_dir"]
     agegrid_filename = PARAMS["InputFiles"]["agegrid_filename"]
     agegrid_filename_ext = PARAMS["InputFiles"]["agegrid_filename_ext"]
+    agegrid_age_zero_padding = PARAMS["InputFiles"]["agegrid_age_zero_padding"]
 
     # --- input file
     proximity_features_files = [PARAMS["InputFiles"]["sediment_thickness_features"]]
@@ -192,7 +193,8 @@ sediment_output_sub_dir = 'sedimentation_output'
 # This string section will get replaced with each age grid time in turn (to generate the actual age grid filenames).
 # age_grid_filenames_format = '/Users/nickywright/Data/Age/Muller2019-Young2019-Cao2020_Agegrids/Muller2019-Young2019-Cao2020_netCDF/Muller2019-Young2019-Cao2020_AgeGrid-{:.0f}.nc'
 
-age_grid_filenames_format = '%s/%s{:.0f}%s' % (agegrid_dir, agegrid_filename, agegrid_filename_ext)
+# age_grid_filenames_format = '%s/%s{:.0f}%s' % (agegrid_dir, agegrid_filename, agegrid_filename_ext)
+age_grid_filenames_format = '%s/%s{:0>%s.0f}%s' % (agegrid_dir, agegrid_filename, agegrid_age_zero_padding, agegrid_filename_ext)
 
 
 # ------------------------------------------
