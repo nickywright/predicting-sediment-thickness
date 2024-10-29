@@ -169,6 +169,7 @@ def write_grd_file(grd_filename, output_data, grid_spacing, num_grid_longitudes,
             # Gridline registration is the default so we don't need to force pixel registration...
             # "-r", # Force pixel registration since data points are at centre of cells.
             "-R{0}/{1}/{2}/{3}".format(-180, 180, -90, 90),
+            "fg",
             "-G{0}".format(grd_filename)]
     call_system_command(gmt_command_line, stdin=xyz_data)
 
