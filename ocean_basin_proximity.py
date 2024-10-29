@@ -480,6 +480,7 @@ def write_grd_file(grd_filename, output_data, grid_spacing, use_nearneighbor = T
                 # Gridline registration is the default so we don't need to force pixel registration...
                 # "-r", # Force pixel registration since data points are at centre of cells.
                 "-R{}/{}/{}/{}".format(-180, 180, -90, 90),
+                "-fg",
                 "-G{}".format(grd_filename)]
     else:
         # The command-line strings to execute GMT 'xyz2grd'.
@@ -492,6 +493,7 @@ def write_grd_file(grd_filename, output_data, grid_spacing, use_nearneighbor = T
                 # Gridline registration is the default so we don't need to force pixel registration...
                 # "-r", # Force pixel registration since data points are at centre of cells.
                 "-R{}/{}/{}/{}".format(-180, 180, -90, 90),
+                "-fg",
                 "-G{}".format(grd_filename)]
     
     call_system_command(gmt_command_line, stdin=xyz_data)
@@ -698,6 +700,7 @@ def write_upscaled_grd_file(grd_filename, scalars, upscaled_lon_lat_indices_weig
             # Gridline registration is the default so we don't need to force pixel registration...
             # "-r", # Force pixel registration since data points are at centre of cells.
             "-R{}/{}/{}/{}".format(-180, 180, -90, 90),
+            "-fg",
             "-G{}".format(grd_filename)],
             stdin=upscaled_xyz_data)
     
