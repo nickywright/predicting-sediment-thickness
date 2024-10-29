@@ -6,6 +6,13 @@ except ImportError:
     from gplately.ptt.utils.call_system_command import call_system_command
 import os, sys
 
+from datetime import datetime
+import yaml
+try:
+    from yaml import Cloader as Loader
+except ImportError:
+    from yaml import Loader
+
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 """ ---------- Part 1 of the predicting-sediment-thickness workflow -----------
  This script creates grids (netcdfs) of the mean distance to passive margins through time
@@ -24,10 +31,105 @@ Outputs:
 2020-02-14: Added comments, removed hardcoded names (for rotation file, etc) from definitions
 2022-08-29: Added more comments (NW)
 2024-02:    Improved running time and memory usage.
+2024-05-09: Modified this script to be compatible with a yaml file
 """
 
+
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ------------------------------------------
-# BEGIN USER INPUT
+# --- Set paths and various parameters
+# ------------------------------------------
+today = datetime.today().strftime('%Y%m%d')
+
+try:
+    config_file = sys.argv[1]
+    print("*** Parameters set from %s ***" % config_file)
+    with open(config_file) as f:
+        PARAMS = yaml.load(f, Loader=Loader)
+
+    # ------------------------------------------
+    # --- Set directories and input files ------
+    model_name = PARAMS["InputFiles"]["model_name"]
+    paleobathymetry_main_output_dir = PARAMS["OutputFiles"]["paleobathymetry_main_output_dir"]
+    include_date_in_output_dir = PARAMS["OutputFiles"]["include_date_in_output_dir"]
+    date = PARAMS["OutputFiles"]["date"]
+
+    sediment_thickness_output_dir = PARAMS["OutputFiles"]["sediment_thickness_output_dir"]
+    sediment_thickness_within_main_output_dir = PARAMS["OutputFiles"]["sediment_thickness_within_main_output_dir"]
+
+    # --- agegrids
+    agegrid_dir = PARAMS["InputFiles"]["agegrid_dir"]
+    agegrid_filename = PARAMS["InputFiles"]["agegrid_filename"]
+    agegrid_filename_ext = PARAMS["InputFiles"]["agegrid_filename_ext"]
+    agegrid_age_zero_padding = PARAMS["InputFiles"]["agegrid_age_zero_padding"]
+    # --- input file
+    proximity_features_files = [PARAMS["InputFiles"]["sediment_thickness_features"]]
+    plate_boundary_obstacles = [PARAMS["InputFiles"]["plate_boundary_obstacles_list"]]
+    # --- Plate model files
+    plate_model_dir = PARAMS["InputFiles"]["model_dir"]
+    rotation_filenames = [os.path.join(plate_model_dir, i) for i in PARAMS['InputFiles']['rotation_files']]
+    topology_filenames = [os.path.join(plate_model_dir, i) for i in PARAMS['InputFiles']['topology_files']]
+    coastline_filename = '%s/%s' % (plate_model_dir, PARAMS['InputFiles']['coastline_file'])
+
+    anchor_plate_id = int(PARAMS["InputFiles"]["anchor_plate_id"])
+
+    # --- grid spacing
+    grid_spacing = PARAMS["GridParameters"]["grid_spacing"]
+    lon_min = PARAMS["GridParameters"]["lon_min"]
+    lon_max = PARAMS["GridParameters"]["lon_max"]
+    lat_min = PARAMS["GridParameters"]["lat_min"]
+    lat_max = PARAMS["GridParameters"]["lat_max"]
+
+    # --- time parameters
+    min_time = int(PARAMS["TimeParameters"]["time_min"])           # Not truly a min_time, - parts 1 and 3 require a 0 Ma shapefile
+    # oldest time to reconstruct to (will default to 0 Ma for min time)
+    max_time = int(PARAMS["TimeParameters"]["time_max"])
+    time_step = int(PARAMS["TimeParameters"]["time_step"])      # Myrs to increment age by in loop
+    
+    # running parameters
+    sed_distance_internal_grid_spacing = PARAMS["SedimentThicknessWorfkowParameters"]["sed_distance_internal_grid_spacing"]
+
+    num_cpus = PARAMS["Parameters"]["number_of_cpus"] # number of cpus to use. Reduce if required!
+    max_memory_usage_in_gb = PARAMS["SedimentThicknessWorfkowParameters"]["max_memory_usage_in_gb_sedthickness"]
+    use_continent_contouring_workflow = PARAMS["SedimentThicknessWorfkowParameters"]["use_continent_contouring_workflow"]
+    max_topological_reconstruction_time = PARAMS["SedimentThicknessWorfkowParameters"]["max_topological_reconstruction_time"]
+    clamp_mean_proximity_kms = PARAMS["SedimentThicknessWorfkowParameters"]["clamp_mean_proximity_kms"]
+
+except IndexError:
+    print('*** No yaml file given. Make sure you specify it ***')
+
+# ------------------------------------------
+# ------------------------------------
+# --- set output directory
+
+if sediment_thickness_within_main_output_dir.lower() in ['true', '1', 't', 'y', 'yes']:
+    if include_date_in_output_dir.lower() in ['true', '1', 't', 'y', 'yes']:
+        if date == 'today':
+            date = today
+            output_dir = '%s/%s/traditional_paleobathymetry/%s/sediment_thickness_D17/distances_%sd' % (paleobathymetry_main_output_dir, date, sediment_thickness_output_dir, grid_spacing)
+            base_dir = '%s/%s' % (paleobathymetry_main_output_dir, date)
+        else:
+            output_dir = '%s/%s/traditional_paleobathymetry/%s/sediment_thickness_D17/distances_%sd' % (paleobathymetry_main_output_dir, date, sediment_thickness_output_dir, grid_spacing)
+            base_dir = '%s/%s' % (paleobathymetry_main_output_dir, date)
+    else:
+        output_dir = '%s/traditional_paleobathymetry/%s/sediment_thickness_D17/distances_%sd' % (paleobathymetry_main_output_dir, sediment_thickness_output_dir, grid_spacing)
+        base_dir = paleobathymetry_main_output_dir
+else:
+    if include_date_in_output_dir.lower() in ['true', '1', 't', 'y', 'yes']:
+        if date == 'today':
+            date = today
+            base_dir = '%s/%s' % (paleobathymetry_main_output_dir, date)
+            output_dir = '%s/%s/sediment_thickness_D17/distances_%sd' % (sediment_thickness_output_dir, date, grid_spacing)
+        else:
+            base_dir = '%s/%s' % (paleobathymetry_main_output_dir, date)
+            output_dir = '%s/%s/sediment_thickness_D17/distances_%sd' % (sediment_thickness_output_dir, date, grid_spacing)
+    else:
+        output_dir = '%s/sediment_thickness_D17/distances_%sd' % (sediment_thickness_output_dir, grid_spacing)
+        base_dir = paleobathymetry_main_output_dir
+
+print("... Output directory: " , output_dir)
+
+
 # ------------------------------------------
 
 # Use all CPUs.
@@ -35,35 +137,22 @@ Outputs:
 # If False then use a single CPU.
 # If True then use all CPUs (cores).
 # If a positive integer then use that specific number of CPUs (cores).
-#
-#use_all_cpus = False
-use_all_cpus = 4
-#use_all_cpus = True
+use_all_cpus = num_cpus
 
 # The maximum amount of memory (in GB) to use (it's divided across the CPUs).
 # Set to the amount of physical RAM (or less).
 # If set to 'None' then there is no limit.
 #max_memory_usage_in_gb = None
-max_memory_usage_in_gb = 16
-
-# Base output directory.
-output_base_dir = '.'
-
-# Generate distance grids for times in the range [min_time, max_time] at 'time_step' intervals.
-min_time = 0
-max_time = 250
-time_step = 1
+max_memory_usage_in_gb = max_memory_usage_in_gb
 
 # The grid spacing used when calculating internal distance grids.
-#
 # This parameter significantly affects the time it takes to generate distance grids in this workflow.
 # So typically this should have a higher grid spacing (lower resolution) than 'grid_spacing' to make it run faster.
-internal_grid_spacing = 1
+internal_grid_spacing = sed_distance_internal_grid_spacing
 
 # The grid spacing of the final output distance grids.
-#
 # The final (higher resolution) distance grids are generated by upscaling the internal distance grids (calculated with 'internal_grid_spacing').
-grid_spacing = 0.1
+grid_spacing = grid_spacing
 
 # The reference frame to generate the distance grids in.
 #
@@ -76,83 +165,76 @@ grid_spacing = 0.1
 #       This is because they are assigned a plate ID of zero (in that workflow) and so
 #       reconstructing them (in this workflow) relative to our anchor plate ID will
 #       automatically position them correctly in our reference frame.
-anchor_plate_id = 0
+anchor_plate_id = anchor_plate_id
 
-# Passive margin files (that distances are calculated relative to).
-#
-# Note: These can be passive margins generated from *contoured* continents (see https://github.com/EarthByte/continent-contouring).
-#       Ensure that the same rotation model is used for contouring (as is used in this workflow).
-proximity_features_files = [
-	'input_data/Global_EarthByte_GeeK07_COBLineSegments_2016_v4.gpmlz', # this is included in this repository
-]
 
-# Optional continent obstacles that the shortest distance path must go around (ie, water flowing around continents, rather than through).
-# If not specifed then distances are minimum straight-line (great circle arc) distances from ocean points to proximity geometries.
-# Obstacles can be both polygons and polylines.
-#
-# Note: These can be *contoured* continents (see https://github.com/EarthByte/continent-contouring).
-#       Ensure that the same rotation model is used for contouring (as is used in this workflow).
-#
-#continent_obstacle_files = None
-continent_obstacle_files = [
-    '/Applications/GPlates_2.3.0/GeoData/FeatureCollections/Coastlines/Global_EarthByte_GPlates_PresentDay_Coastlines.gpmlz',
-]
-#
-# If continent obstacles are specified then any plate boundary sections with these specified feature types are also added as obstacles
-# (that water, and hence sediment, cannot pass through).
-#
-# This should default to mid-ocean ridges and subduction zones, but you can change this if desired.
-#
-# The format should match the format of http://www.gplates.org/docs/pygplates/generated/pygplates.FeatureType.html#pygplates.FeatureType.get_name .
-# For example, subduction zone is specified as SubductionZone (without the gpml: prefix).
-#
-# Note: These are ignored unless 'continent_obstacle_files' is also specified.
-#
-plate_boundary_obstacles = ["MidOceanRidge", "SubductionZone"]
+# ---- 
+if use_continent_contouring_workflow.lower() in ['true', '1', 't', 'y', 'yes']:
+    # use the output from the continent contouring workflow for the proximity_features and continent obstacle files
+    proximity_features_files = ['%s/continent_contouring/passive_margin_features.gpmlz' % base_dir]
+    continent_obstacle_files = ['%s/continent_contouring/continent_contour_features.gpmlz' % base_dir]
+
+    # If continent obstacles are specified then any plate boundary sections with these specified feature types are also added as obstacles
+    # (that water, and hence sediment, cannot pass through).
+    #
+    # This should default to mid-ocean ridges and subduction zones, but you can change this if desired.
+    #
+    # The format should match the format of http://www.gplates.org/docs/pygplates/generated/pygplates.FeatureType.html#pygplates.FeatureType.get_name .
+    # For example, subduction zone is specified as SubductionZone (without the gpml: prefix).
+    #
+    # Note: These are ignored unless 'continent_obstacle_files' is also specified.
+    #
+    plate_boundary_obstacles = plate_boundary_obstacles
+
+
+else:
+    # Passive margin files (that distances are calculated relative to).
+    #
+    # Note: These can be passive margins generated from *contoured* continents (see https://github.com/EarthByte/continent-contouring).
+    #       Ensure that the same rotation model is used for contouring (as is used in this workflow).
+    proximity_features_files = [proximity_features_files, # this is included in this repository
+    ]
+
+    # Optional continent obstacles that the shortest distance path must go around (ie, water flowing around continents, rather than through).
+    # If not specifed then distances are minimum straight-line (great circle arc) distances from ocean points to proximity geometries.
+    # Obstacles can be both polygons and polylines.
+    #
+    # Note: These can be *contoured* continents (see https://github.com/EarthByte/continent-contouring).
+    #       Ensure that the same rotation model is used for contouring (as is used in this workflow).
+    #
+    #continent_obstacle_files = None
+    continent_obstacle_files = [coastline_filename]
+
+
+print('... Using proximity_features_files: %s' % proximity_features_files)
+print('... Using continent_obstacle_files: %s' % continent_obstacle_files)
+print('... Using plate_boundary_obstacles: %s' % plate_boundary_obstacles)
+
 
 # Age grid files.
-#
 # The format string to generate age grid filenames (using the age grid paleo times in the range [min_time, max_time]).
 # Use a string section like "{:.1f}" to for the age grid paleo time. The ".1f" part means use the paleo time to one decimal place
 # (see Python\'s str.format() function) such that a time of 100 would be substituted as "100.0".
 # This string section will get replaced with each age grid time in turn (to generate the actual age grid filenames).
-age_grid_filenames_format = '/Users/nickywright/Data/Age/Muller2019-Young2019-Cao2020_Agegrids/Muller2019-Young2019-Cao2020_netCDF/Muller2019-Young2019-Cao2020_AgeGrid-{:.0f}.nc'
-
-# Topology and rotation files.
-data_dir = '/Applications/GPlates_2.3.0/GeoData/FeatureCollections/'
-rotation_filenames = [
-    '{}/Rotations/Muller2019-Young2019-Cao2020_CombinedRotations.rot'.format(data_dir)]
-topology_filenames = [
-    '{}/DynamicPolygons/Muller2019-Young2019-Cao2020_PlateBoundaries.gpmlz'.format(data_dir),
-    '{}/DeformingLithosphere/Muller2019-Young2019-Cao2020_ActiveDeformation.gpmlz'.format(data_dir)]
+# age_grid_filenames_format = '/Users/nickywright/Data/Age/Muller2019-Young2019-Cao2020_Agegrids/Muller2019-Young2019-Cao2020_netCDF/Muller2019-Young2019-Cao2020_AgeGrid-{:.0f}.nc'
+age_grid_filenames_format = '%s/%s{:0>%s.0f}%s' % (agegrid_dir, agegrid_filename, agegrid_age_zero_padding, agegrid_filename_ext)
 
 # For each distance grid do not reconstruct ocean points earlier than 'max_topological_reconstruction_time'
 # (each ocean point is reconstructed back to its age grid value or this value, whichever is smaller).
 # This limit can be set to the earliest (max) reconstruction time of the topological model.
 # If it's 'None' then only the age grid limits how far back each point is reconstructed.
-max_topological_reconstruction_time = 250  # can be None to just use age grid as the limit
+max_topological_reconstruction_time = max_topological_reconstruction_time  # can be None to just use age grid as the limit
 
 # Optionally clamp mean distances to this value (in kms).
 #clamp_mean_proximity_kms = None
-clamp_mean_proximity_kms = 3000
-
-# Output directory name.
-output_dir = '{}/distances_{:.1f}d'.format(output_base_dir, grid_spacing)
-
+clamp_mean_proximity_kms = clamp_mean_proximity_kms
 # ------------------------------------------
-# END USER INPUT
+# END parameters
 # ------------------------------------------
-
-
-# -----
-# make needed directories
-if not os.path.exists(output_base_dir):
-    os.makedirs(output_base_dir)
-
 
 if not os.path.exists(output_dir):
     print('{} does not exist, creating now... '.format(output_dir))
-    os.mkdir(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
 # ----- 
 def generate_distance_grids(times):
