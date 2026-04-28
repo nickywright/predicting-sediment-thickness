@@ -165,7 +165,7 @@ if generate_sedimentation_rate_grids.lower() in ['true', '1', 't', 'y', 'yes']:
 else:
     generate_sedimentation_rate_grids = False
 
-distance_grid_spacing = 0.1   # grid spacing of input distance grids
+distance_grid_spacing = grid_spacing   # grid spacing of input distance grids
 grid_spacing = grid_spacing   # grid spacing of output sedimentation grids
 
 # Distance grid files (from part 1)
